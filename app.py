@@ -1,164 +1,215 @@
-"""Disease prediction app.
-
-This file is a Python equivalent of the logic in `disease prediction.ipynb`.
-It trains a RandomForestClassifier on `Testing.csv` and can be used:
-
-- As a CLI:  python app.py
-- As an importable module: from app import train_and_save, predict
-
-Note: For a real production UI, add Flask/FastAPI/Streamlit endpoints.
-"""
-
-from __future__ import annotations
-
-import argparse
-import os
+import streamlit as st
 import joblib
-
-from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
-
-import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
 
+# ================= PAGE CONFIG =================
+st.set_page_config(
+    page_title="Crop Recommendation",
+    page_icon="🌱",
+    layout="wide"
+)
 
+# ================= CSS =================
+st.markdown("""
+<style>
 
-TARGET_COL = "prognosis"
-DEFAULT_DATA_PATH = "Testing.csv"
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
+html, body, [class*="css"]{
+    font-family:'Poppins',sans-serif;
+}
 
-@dataclass
-class ModelBundle:
-    model: Any
-    feature_columns: List[str]
+/* Background */
+.stApp{
+background:
+radial-gradient(circle at top left, rgba(34,197,94,0.25), transparent 30%),
+radial-gradient(circle at bottom right, rgba(132,204,22,0.20), transparent 30%),
+linear-gradient(
+135deg,
+#041c12 0%,
+#0b3d20 30%,
+#14532d 70%,
+#052e16 100%
+);
+}
 
+/* Hide Streamlit Branding */
+#MainMenu {visibility:hidden;}
+footer {visibility:hidden;}
+header {visibility:hidden;}
 
-def load_dataset(csv_path: str) -> Tuple[pd.DataFrame, pd.Series]:
-    df = pd.read_csv(csv_path)
+/* Glass Container */
+.block-container{
+padding-top:2rem;
+}
 
-    if TARGET_COL not in df.columns:
-        raise ValueError(
-            f"Target column '{TARGET_COL}' not found in dataset. "
-            f"Columns: {list(df.columns)}"
-        )
+/* Labels */
+label{
+color:white !important;
+font-weight:600 !important;
+}
 
-    X = df.drop(columns=[TARGET_COL])
-    y = df[TARGET_COL]
-    return X, y
+/* Inputs */
+.stNumberInput input{
+background:white !important;
+color:#14532d !important;
+border-radius:15px !important;
+border:2px solid #22c55e !important;
+font-weight:600 !important;
+}
 
+/* Button */
+.stButton button{
+width:100%;
+height:60px;
+border:none;
+border-radius:18px;
+background:linear-gradient(135deg,#22c55e,#16a34a);
+color:white;
+font-size:20px;
+font-weight:700;
+}
 
-def build_pipeline() -> Pipeline:
-    # RandomForestClassifier doesn't require feature scaling.
-    # Keeping preprocessing minimal avoids failures when dataset contains non-numeric columns.
-    return Pipeline(
-        steps=[
-            ("clf", RandomForestClassifier(n_estimators=100, random_state=42)),
-        ]
-    )
+.stButton button:hover{
+transform:scale(1.02);
+}
 
+/* Subheaders */
+h3{
+color:white !important;
+}
 
+</style>
+""", unsafe_allow_html=True)
 
-def train(csv_path: str = DEFAULT_DATA_PATH) -> Tuple[ModelBundle, Dict[str, Any]]:
-    X, y = load_dataset(csv_path)
+# ================= HERO =================
+st.markdown("""
+<div style="
+background:linear-gradient(135deg,#22c55e,#15803d);
+padding:35px;
+border-radius:25px;
+text-align:center;
+margin-bottom:25px;
+box-shadow:0px 8px 30px rgba(0,0,0,0.25);
+">
+<h1 style="color:white;margin:0;">
+🌾 Smart Crop Recommendation
+</h1>
+<p style="color:white;font-size:18px;margin-top:10px;">
+AI Powered Farming Assistant for Better Yield & Smart Agriculture
+</p>
+</div>
+""", unsafe_allow_html=True)
 
-    feature_columns = list(X.columns)
+# ================= STATS =================
+col1, col2, col3 = st.columns(3)
 
+with col1:
+    st.metric("🌱 Supported Crops", "22+")
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
+with col2:
+    st.metric("🎯 Model Accuracy", "99%")
 
-    pipeline = build_pipeline()
-    pipeline.fit(X_train, y_train)
+with col3:
+    st.metric("📊 Parameters Used", "7")
 
-    y_pred = pipeline.predict(X_test)
+st.markdown("<br>", unsafe_allow_html=True)
 
-    metrics = {
-        "accuracy": float(accuracy_score(y_test, y_pred)),
-        "report": classification_report(y_test, y_pred, zero_division=0),
-    }
+# ================= CROP CARDS =================
+st.markdown("### 🌾 Popular Crops")
 
-    bundle = ModelBundle(model=pipeline, feature_columns=feature_columns)
-    return bundle, metrics
+c1, c2, c3, c4 = st.columns(4)
 
+with c1:
+    st.markdown("""
+    <div style="background:rgba(255,255,255,0.1);
+    padding:25px;border-radius:20px;text-align:center;color:white;">
+    🌾<br><h4>Rice</h4>
+    </div>
+    """, unsafe_allow_html=True)
 
-def predict(bundle: ModelBundle, input_row: Dict[str, Any]) -> Any:
-    """Predict prognosis from a single input row.
+with c2:
+    st.markdown("""
+    <div style="background:rgba(255,255,255,0.1);
+    padding:25px;border-radius:20px;text-align:center;color:white;">
+    🌽<br><h4>Maize</h4>
+    </div>
+    """, unsafe_allow_html=True)
 
-    input_row must contain all feature columns from training.
-    Values are coerced to numeric when possible.
-    """
-    missing = [c for c in bundle.feature_columns if c not in input_row]
-    if missing:
-        raise ValueError(f"Missing required features: {missing}")
+with c3:
+    st.markdown("""
+    <div style="background:rgba(255,255,255,0.1);
+    padding:25px;border-radius:20px;text-align:center;color:white;">
+    🌿<br><h4>Cotton</h4>
+    </div>
+    """, unsafe_allow_html=True)
 
-    extra = [c for c in input_row.keys() if c not in set(bundle.feature_columns)]
-    if extra:
-        # Not fatal; caller might include metadata fields.
-        pass
+with c4:
+    st.markdown("""
+    <div style="background:rgba(255,255,255,0.1);
+    padding:25px;border-radius:20px;text-align:center;color:white;">
+    🌻<br><h4>Sunflower</h4>
+    </div>
+    """, unsafe_allow_html=True)
 
-    row_vals: List[float] = []
-    for c in bundle.feature_columns:
-        v = input_row[c]
-        try:
-            row_vals.append(float(v))
-        except (TypeError, ValueError):
-            raise ValueError(f"Feature '{c}' must be numeric; got {v!r}")
+st.markdown("<br>", unsafe_allow_html=True)
 
-    row = np.array([row_vals], dtype=float)
-    return bundle.model.predict(row)[0]
+# ================= LOAD MODEL =================
+model_data = joblib.load("crop_recommendation_model.joblib")
 
+pipeline = model_data["pipeline"]
+label_encoder = model_data["label_encoder"]
 
+# ================= INPUTS =================
+st.markdown("### 🧪 Soil & Weather Details")
 
-def train_and_save(csv_path: str = DEFAULT_DATA_PATH, model_path: str = "app_bundle.joblib") -> Dict[str, Any]:
-    """Train the model and persist it to disk.
+col1, col2, col3 = st.columns(3)
 
-    Returns metrics.
-    """
-    bundle, metrics = train(csv_path)
+with col1:
+    N = st.number_input("Nitrogen (N)", 0, 200, 90)
+    temperature = st.number_input("Temperature (°C)", value=20.8)
 
-    payload = {
-        "bundle": bundle,
-    }
+with col2:
+    P = st.number_input("Phosphorus (P)", 0, 200, 42)
+    humidity = st.number_input("Humidity (%)", value=82.0)
 
-    out_path = model_path
-    joblib.dump(payload, out_path)
-    return metrics
+with col3:
+    K = st.number_input("Potassium (K)", 0, 200, 43)
+    ph = st.number_input("pH Value", value=6.5)
 
+rainfall = st.number_input("Rainfall (mm)", value=202.0)
 
-def load_bundle(model_path: str = "app_bundle.joblib") -> ModelBundle:
-    data = joblib.load(model_path)
-    if isinstance(data, dict) and "bundle" in data:
-        return data["bundle"]
-    # Backward/alternate compatibility
-    return data
+st.markdown("<br>", unsafe_allow_html=True)
 
+# ================= PREDICT =================
+if st.button("🚀 Recommend Best Crop"):
 
-def main() -> None:
+    sample = pd.DataFrame([{
+        "N": N,
+        "P": P,
+        "K": K,
+        "temperature": temperature,
+        "humidity": humidity,
+        "ph": ph,
+        "rainfall": rainfall
+    }])
 
-    parser = argparse.ArgumentParser(description="Train and evaluate the disease model.")
-    parser.add_argument("--csv", default=DEFAULT_DATA_PATH, help="Path to dataset CSV")
-    parser.add_argument(
-        "--save-model",
-        default="app_bundle.joblib",
-        help="Where to write trained bundle (default: app_bundle.joblib). If set to 'none', model is not saved.",
-    )
-    args = parser.parse_args()
+    prediction = pipeline.predict(sample)
+    crop = label_encoder.inverse_transform(prediction)[0]
 
-    if args.save_model and str(args.save_model).lower() != "none":
-        metrics = train_and_save(args.csv, model_path=args.save_model)
-    else:
-        _, metrics = train(args.csv)
-
-
-    print(f"Accuracy: {metrics['accuracy']:.4f}")
-    print("Classification report:\n", metrics["report"])
-
-
-if __name__ == "__main__":
-    main()
-
+    st.markdown(f"""
+<div style="
+background:rgba(255,255,255,0.04);
+backdrop-filter:blur(15px);
+border:1px solid rgba(255,255,255,0.1);
+padding:30px;
+border-radius:25px;
+text-align:center;
+margin-top:25px;
+">
+<h2 style="color:#86efac;">🌾 Recommended Crop</h2>
+<h1 style="color:white;font-size:60px;">
+{crop.upper()}
+</h1>
+</div>
+""", unsafe_allow_html=True)
